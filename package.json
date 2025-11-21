@@ -1,0 +1,6 @@
+{
+  "name": "teknov8",
+  "devDependencies": {
+    "vercel": "^48.10.6"
+  }
+}
