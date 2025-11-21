@@ -16,16 +16,22 @@ groq_api_key = os.environ.get("GROQ_API_KEY")
 client = Groq(api_key=groq_api_key)
 
 # -----------------------------
-# 2. Load FAISS Vectorstore
+# 2. Load FAISS Vectorstore (Lazy Loading)
 # -----------------------------
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+embeddings = None
+vectorstore = None
 
-# vectorstore folder must sit inside your project directory
-vectorstore = FAISS.load_local(
-    "vectorstore",
-    embeddings,
-    allow_dangerous_deserialization=True
-)
+def get_vectorstore():
+    """Lazy load vectorstore to reduce memory usage at startup"""
+    global embeddings, vectorstore
+    if vectorstore is None:
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        vectorstore = FAISS.load_local(
+            "vectorstore",
+            embeddings,
+            allow_dangerous_deserialization=True
+        )
+    return vectorstore
 
 # -----------------------------
 # 3. Model Options for Dropdown
@@ -60,7 +66,8 @@ def select_model():
     input_text = request.form.get("input_text")
 
     # Retrieve relevant chunks
-    results = vectorstore.similarity_search(input_text, k=3)
+    vs = get_vectorstore()
+    results = vs.similarity_search(input_text, k=3)
     context = "\n".join(doc.page_content for doc in results)
 
     prompt = f"""
@@ -98,7 +105,8 @@ def chat():
     user_message = request.json.get("message", "")
 
     # Retrieve similar context from vector store
-    results = vectorstore.similarity_search(user_message, k=3)
+    vs = get_vectorstore()
+    results = vs.similarity_search(user_message, k=3)
     context = "\n".join([doc.page_content for doc in results])
 
     prompt = f"""
